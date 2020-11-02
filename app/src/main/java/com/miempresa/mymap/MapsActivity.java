@@ -1,12 +1,14 @@
 package com.miempresa.mymap;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -16,6 +18,7 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
 import android.media.ResourceBusyException;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -40,17 +43,19 @@ import com.google.android.gms.maps.model.PointOfInterest;
 
 import java.util.Locale;
 
+@RequiresApi(api = Build.VERSION_CODES.N)
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private GoogleMap mMap;
     private static final String TAG = "Estilo del mapa";
     private static final int REQUEST_LOCATION_PERMISSION = 1;
+    private GoogleMap mMap;
     private LatLng japon, alemania, italia, francia;
+    private LocationManager locationManager;
+    private Location location;
+    private double latitudentrada = 0, longitudentrada = 0;
+    private double latitudsalida = 0, longitudsalida = 0;
     double distancia;
-    private double miLatitud = 0, miLongitud = 0;
-    private double Latitud2 = 0, Longitud2 = 0;
-    private LocationManager mylocationManager;
-    private Location milocacion;
+    DecimalFormat KM = new DecimalFormat("#.00");
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -59,65 +64,57 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return true;
     }
 
+    @SuppressLint("NonConstantResourceId")
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        japon = new LatLng(35.680513, 139.769051);
-        alemania = new LatLng(52.516934, 13.403190);
-        italia = new LatLng(41.902609, 12.494847);
-        francia = new LatLng(48.843489, 2.355331);
-
-
-
-
-
-        String distancia;
+        japon = new LatLng(35.680513,139.769051);
+        alemania = new LatLng(52.516934,13.403190);
+        italia = new LatLng(41.902609,12.494847);
+        francia = new LatLng(48.843489,2.355331);
 
         switch (item.getItemId()) {
             case R.id.normal_map:
                 mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                 mMap.addMarker(new MarkerOptions().position(japon).title("Japon"));
-
-                 distancia = CalcularDistancia("japon",miLatitud,miLongitud,japon.latitude,japon.longitude);
-
-
-                Toast.makeText(getApplicationContext(), distancia, Toast.LENGTH_LONG).show();
+                distancia = CalcularDistancia(japon);
+                Toast.makeText(getApplicationContext(), "japon esta a   "+String.valueOf(KM.format(distancia))+" Km",Toast.LENGTH_LONG).show();
                 return true;
             case R.id.hybrid_map:
                 mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
                 mMap.addMarker(new MarkerOptions().position(italia).title("Italia"));
-                 distancia = CalcularDistancia("italia",miLatitud,miLongitud,italia.latitude,italia.longitude);
-                Toast.makeText(getApplicationContext(), distancia, Toast.LENGTH_LONG).show();
+                distancia = CalcularDistancia(italia);
+                Toast.makeText(getApplicationContext(), "Italia esta a   "+String.valueOf(KM.format(distancia))+" Km",Toast.LENGTH_LONG).show();
                 return true;
             case R.id.satellite_map:
                 mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
                 mMap.addMarker(new MarkerOptions().position(alemania).title("Alemania"));
-                distancia = CalcularDistancia("alemania",miLatitud,miLongitud,alemania.latitude,alemania.longitude);
-                Toast.makeText(getApplicationContext(), distancia, Toast.LENGTH_LONG).show();
+                distancia = CalcularDistancia(alemania);
+                Toast.makeText(getApplicationContext(), "alemania esta a   "+String.valueOf(KM.format(distancia))+" Km",Toast.LENGTH_LONG).show();
                 return true;
             case R.id.terrain_map:
                 mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
                 mMap.addMarker(new MarkerOptions().position(francia).title("Francia"));
-                distancia = CalcularDistancia("francia",miLatitud,miLongitud,francia.latitude,francia.longitude);
-                Toast.makeText(getApplicationContext(), distancia, Toast.LENGTH_LONG).show();
+                distancia = CalcularDistancia(francia);
+                Toast.makeText(getApplicationContext(), "francia esta a   "+String.valueOf(KM.format(distancia))+" Km",Toast.LENGTH_LONG).show();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
-    public String CalcularDistancia(String pais,double lat1, double long1,double lat2,double long2) {
+    public double CalcularDistancia(LatLng salida) {
         int Radius=6371;//radius of earth in Km
+        double lat1 = latitudentrada;
+        double lat2 = salida.latitude;
+        double lon1 = longitudentrada;
+        double lon2 = salida.longitude;
         double dLat = Math.toRadians(lat2-lat1);
-        double dLon = Math.toRadians(long2-long1);
+        double dLon = Math.toRadians(lon2-lon1);
         double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                 Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
                         Math.sin(dLon/2) * Math.sin(dLon/2);
         double c = 2 * Math.asin(Math.sqrt(a));
-        double valueResult= Radius*c;
-        int km=(int) valueResult;
-        double mt = (long)valueResult;
-        String DistanciaEntre = "La distancia hasta " + pais+ " es de "+km +"Kilometros y "+mt+" metros ";
-        return DistanciaEntre;
+        return Radius * c;
     }
 
     @Override
@@ -131,7 +128,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .commit();
         mapFragment.getMapAsync(this);
 
-        mylocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
@@ -142,9 +139,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
-        milocacion = mylocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-        miLatitud = milocacion.getLatitude();
-        miLongitud = milocacion.getLongitude();
+
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        latitudentrada = location.getLatitude();
+        latitudentrada = location.getLongitude();
 
 
     }
@@ -174,7 +173,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         // Add a marker in Sydney and move the camera
-        LatLng tacna = new LatLng(miLatitud,miLongitud);
+        LatLng tacna = new LatLng(location.getLatitude(),location.getLongitude());
         mMap.addMarker(new MarkerOptions().position(tacna).title("Marker in Tacna"));
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(tacna,zoom));
         GroundOverlayOptions iconOverlay = new GroundOverlayOptions()
